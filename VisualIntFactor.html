@@ -1,0 +1,1086 @@
+<html>
+<head>
+<title>Visual Integer Factor</title>
+<script type="text/javascript">
+
+//TODO a few example multiplies up to 255. 3*5*17=255
+
+vif = {};
+
+vif.meta = {};
+vif.meta.fullName = 'Visual Integer Factor';
+vif.meta.licenseName = 'open source GNU GPL 2+ (version 2 or higher, your choice)';
+vif.meta.websites = [
+	'http://sourceforge.net/projects/visualintfactor', //newest code here
+	'http://visualinteger.com', //may only keep 1 of these 2?
+	'http://visualintfactor.com' //may only keep 1 of these 2?
+];
+vif.meta.mapOfAuthorToContributedWhat = {};
+vif.meta.mapOfAuthorToContributedWhat['Ben F Rayfield'] = 'first version';
+
+//vif.ones[each index] is true or false. Changes values in 0, 2, or 3 indexs
+//Those indexs are dataIndex and down of it and right of it
+vif.unifiedOperator = function(dataIndex){
+	var x = dataIndex%vif.howManyRowsAndColumns;
+	var y = Math.floor(dataIndex/vif.howManyRowsAndColumns);
+	if(0 < x && 0 < y){ //has bit vars in 2 lower digit directions
+		var dataIndexFirstChild = dataIndex-vif.howManyRowsAndColumns;
+		var dataIndexSecondChild = dataIndex-1;
+		if(vif.ones[dataIndexFirstChild] == vif.ones[dataIndexSecondChild]){
+			//Child bits equal. Can only swap them with parent if its opposite.
+			if(vif.ones[dataIndex] != vif.ones[dataIndexFirstChild]){
+				vif.negateBit(dataIndex);
+				vif.negateBit(dataIndexFirstChild);
+				vif.negateBit(dataIndexSecondChild);
+			}
+			//else unifiedOperator could not be done because all 3 bits equal
+		}else{
+			//Child bits not equal. Swap them.
+			vif.negateBit(dataIndexFirstChild);
+			vif.negateBit(dataIndexSecondChild);
+		}
+	}
+	vif.redrawRowAndColumnLabelsOnceMore = true;
+};
+
+vif.setFactorsOnScreen = function(rowFactor, columnFactor){
+	var maxIntInGrid = Math.pow(2,vif.howManyRowsAndColumns)-1
+	var mult = rowFactor*columnFactor;
+	if(maxIntInGrid < mult){
+		vif.log("Not factorable in such a small grid (TODO enlarge grid when this happens), multiplied: "+mult);
+	}else if(rowFactor < 1 || columnFactor < 1){
+		vif.log("Must be numbers at least 1: "+rowFactor+" and "+columnFactor);
+	}else{
+		vif.writeIntDataOfRow(0, rowFactor);
+		for(var column=0; column<vif.howManyRowsAndColumns; column++){
+			var dataIndex = column; //+ row*vif.howManyRowsAndColumns which is 0
+			var writeColumnInt = vif.ones[dataIndex] ? columnFactor : 0;
+			vif.writeIntDataOfColumn(column, writeColumnInt);
+		}
+		//vif.log("TODO setFactorsOnScreen "+rowFactor+" "+columnFactor);
+	}
+};
+
+/*vif.copyRowLabelToBits = function(row){
+	vif.log("TODO vif.copyRowLabelToBits update text while keeping selected position");
+};
+
+vif.copyBitsToRowLabel = function(row){
+	vif.log("TODO vif.copyBitsToRowLabel update text while keeping selected position");
+};
+
+vif.copyColumnLabelToBits = function(column){
+	vif.log("TODO vif.copyColumnLabelToBits update text while keeping selected position");
+};
+
+vif.copyBitsToColumnLabel = function(column){
+	vif.log("TODO vif.copyBitsToColumnLabel update text while keeping selected position");
+};*/
+
+vif.enableKeyEventsInLabels = true;
+
+vif.countFilterLabelText = 0; //TODO remove this var
+
+//Removes anything except digits 0-9, and limits range to what fits in grid
+vif.filterLabelText = function(labelText){
+	vif.countFilterLabelText++;
+	var newLabelText = labelText.replace(/[^0-9]/g,'');
+	//if(newLabelText == '') newLabelText = '0';
+	var theInt = parseInt(newLabelText);
+	var maxIntInGrid = Math.pow(2,vif.howManyRowsAndColumns)-1;
+	theInt = Math.min(theInt, maxIntInGrid);
+	newLabelText = vif.addHighZerosToLabelNumber(''+theInt);
+	return newLabelText;
+};
+
+vif.onKeyUpInRow = function(row){
+	if(!vif.enableKeyEventsInLabels) return;
+	vif.enableKeyEventsInLabels = false;
+	var rowText = vif.getRowText(row);
+	var newRowText = vif.filterLabelText(rowText);
+	if(rowText != newRowText) vif.putRowText(row, newRowText);
+	var theInt = parseInt(newRowText);
+	//vif.log("Writing row theInt="+theInt);
+	vif.writeIntDataOfRow(row, theInt);
+	vif.enableKeyEventsInLabels = true;
+};
+
+vif.onKeyUpInColumn = function(column){
+	if(!vif.enableKeyEventsInLabels) return;
+	vif.enableKeyEventsInLabels = false;
+	var columnText = vif.getColumnText(column);
+	var newColumnText = vif.filterLabelText(columnText);
+	if(columnText != newColumnText) vif.putColumnText(column, newColumnText);
+	var theInt = parseInt(newColumnText);
+	//vif.log("Writing column theInt="+theInt);
+	vif.writeIntDataOfColumn(column, theInt);
+	vif.enableKeyEventsInLabels = true;
+};
+
+//updates rowLabel and columnLabel
+vif.writeBit = function(dataIndex, bit){
+	var row = Math.floor(dataIndex/vif.howManyRowsAndColumns);
+	var column = dataIndex-row*vif.howManyRowsAndColumns;
+	vif.ones[dataIndex] = bit;
+	//TODO do it here instead of in mainLoop vif.copyBitsToRowLabel(row);
+	//TODO do it here instead of in mainLoop vif.copyBitsToColumnLabel(column);
+};
+
+vif.doThisSoonAfterOnmousemoveEvent = function(){
+	//vif.log('Mouse moved vif.mouseInCanvas.x='+vif.mouseInCanvas.x+' vif.mouseInCanvas.y='+vif.mouseInCanvas.y);
+}
+
+vif.doThisSoonAfterOnmouseupEvent = function(){
+	//vif.unifiedOperator(vif.mouseInWhatDataIndex());
+};
+
+vif.doThisSoonAfterOnmousedownEvent = function(){
+	if(vif.isMouseInCanvas){
+		vif.unifiedOperator(vif.mouseInWhatDataIndex());
+	}//else{
+	//	vif.log("mousedown outside of canvas");
+	//}
+};
+
+vif.newArray = function(size, value){
+	var a = [];
+	for(var i=0; i<size; i++) a[i] = value;
+	return a;
+};
+
+//vif.howManyRowsAndColumns = 64;
+//vif.howManyRowsAndColumns = 26;
+vif.howManyRowsAndColumns = 8;
+
+//If baseN is 2, returns gridSizePerSide. Normally baseN is ten as displayed in labels.
+vif.maxBaseNDigitsForGridSizePerSide = function(baseN, gridSizePerSide){
+	if(baseN < 2) throw 'baseN='+baseN+' is less than 2';
+	//TODO use divide and log to do it without limits of javascript number types.
+	var maxValue = Math.pow(2,gridSizePerSide)-1;
+	var v = maxValue;
+	var baseNDigits = 0;
+	while(1 <= v){
+		baseNDigits++;
+		v /= baseN;
+	}
+	return baseNDigits;
+};
+
+vif.addHighZerosToLabelNumber = function(labelNumberString){
+	var targetDigits = vif.maxBaseNDigitsForGridSizePerSide(
+		10, vif.howManyRowsAndColumns);
+	while(labelNumberString.length < targetDigits){
+		labelNumberString = '0'+labelNumberString;
+	}
+	return labelNumberString;
+};
+
+//Pixels above the canvas for column labels
+//vif.columnLabelSize = 170;
+vif.columnLabelSize = 22*vif.maxBaseNDigitsForGridSizePerSide(10,vif.howManyRowsAndColumns);
+
+//Pixels left of canvas for row labels
+//vif.rowLabelSize = 100;
+vif.rowLabelSize = 15*vif.maxBaseNDigitsForGridSizePerSide(10,vif.howManyRowsAndColumns);
+
+vif.redrawRowAndColumnLabelsOnceMore = true;
+
+//rectangle on screen, normally on the edges of the canvas
+//to display numbers (in baseTen) of whats at each row or column,
+//or to display things about which rows and columns
+//satisfy integer factor constraints, or to display any
+//html content anywhere on screen at a specific x and y position.
+vif.Rect = function(startHtml){
+	this.position = vif.newArray(2, 0);
+	this.size = vif.newArray(2, 20);
+	this.startHtml = startHtml;
+	this.display = function(){
+		if(this.theDiv == null){
+			this.theDiv = document.createElement("div");
+			this.theDiv.style.overflow = 'visible';
+			this.theDiv.style.position = 'absolute';
+			document.body.appendChild(this.theDiv);
+			this.theDiv.innerHTML = startHtml;
+		};
+		this.theDiv.style.left = this.position[0]+'px';
+		this.theDiv.style.top = this.position[1]+'px';
+	};
+};
+
+vif.mainLoop = function(){
+	vif.runsOfMainLoop++;
+	if(vif.runsOfMainLoop == 10){
+		vif.log("rowSizes = "+vif.rowSizes);
+	}
+	
+	var dataIndexEnd = vif.howManyRowsAndColumns*vif.howManyRowsAndColumns;
+	for(var d=0; d<dataIndexEnd; d++){
+		vif.selected[d] = false;
+	}
+	var d = vif.mouseInWhatDataIndex();
+	vif.selected[d] = true;
+	var childIndexA = d-1;
+	var childIndexB = d-vif.howManyRowsAndColumns;
+	if(0 <= childIndexA) vif.selected[childIndexA] = true;
+	if(0 <= childIndexB) vif.selected[childIndexB] = true;
+	
+	var yStart = 0;
+	for(var row=0; row<vif.howManyRowsAndColumns; row++){
+		var ySize = vif.rowSizes[row];
+		var xStart = 0;
+		for(var column=0; column<vif.howManyRowsAndColumns; column++){
+			var dataIndex = row*vif.howManyRowsAndColumns+column;
+			var xSize = vif.columnSizes[column];
+			//pixels in rectangle of row and column
+			/* THIS WORKS BUT IS SLOWER THAN BY RECTANGLE
+			for(var y=yStart; y<yStart+ySize; y++){
+				for(var x=xStart; x<xStart+xSize; x++){
+					if(0 <= y && y < vif.h && 0 <= x && x < vif.w){
+						var brightIfOne = vif.ones[dataIndex] ? 255 : 0
+						var redByte = brightIfOne;
+						var greenByte = brightIfOne;
+						var blueByte = brightIfOne;
+						vif.writeRed(x, y, redByte);
+						vif.writeGreen(x, y, greenByte);
+						vif.writeBlue(x, y, blueByte);
+					}
+				}
+			}
+			*/
+			var selected = vif.selected[dataIndex];
+			var bit = vif.ones[dataIndex];
+			var brightIfOne = bit ? 255 : 0;
+			var redByte = 32;
+			var greenByte = 32;
+			var blueByte = brightIfOne;
+			if(selected){
+				greenByte = 128;
+			}
+			var xStartReversed = vif.w-1-xStart-xSize;
+			var yStartReversed = vif.h-1-yStart-ySize;
+			vif.writeColorAtRectangle(xStartReversed, yStartReversed,
+				xStartReversed+xSize, yStartReversed+ySize,
+				redByte, greenByte, blueByte);
+			
+			
+			xStart += xSize;
+		}
+		yStart += ySize;
+	}
+	
+	var colXStart = vif.getCanvasXOnScreen()+vif.w;
+	var colYStart = vif.getCanvasYOnScreen()-vif.columnLabelSize;
+	var rowXStart = vif.getCanvasXOnScreen()-vif.rowLabelSize;
+	var rowYStart = vif.getCanvasYOnScreen()+vif.h;
+	//TODO where is vif.redrawRowAndColumnLabelsOnceMore set to true?
+	//It will at least be set true when vif.unifiedOperator(dataIndex)
+	if(vif.redrawRowAndColumnLabelsOnceMore){
+		for(var i=0; i<vif.howManyRowsAndColumns; i++){
+			
+			colXStart -= vif.columnSizes[i];
+			var colLabel = vif.columnLabels[i];
+			colLabel.position[0] = colXStart;
+			colLabel.position[1] = colYStart;
+			if(colLabel.theDiv != null){
+				colLabel.theDiv.innerHTML = vif.htmlForColumnLabel(i);
+			}
+			colLabel.display();
+			
+			var rowLabel = vif.rowLabels[i];
+			rowYStart -= vif.rowSizes[i];
+			rowLabel.position[0] = rowXStart;
+			rowLabel.position[1] = rowYStart;
+			if(rowLabel.theDiv != null){
+				rowLabel.theDiv.innerHTML = vif.htmlForRowLabel(i);
+			}
+			rowLabel.display();
+		}
+		vif.redrawRowAndColumnLabelsOnceMore = false;
+	}
+	
+	//vif.writeColorAtRectangle(0, 0, 30, 20, 128, 128, 128);
+	//vif.unifiedOperator(37*vif.mouseInCanvas.x); //TODO where click
+	/*for(var i=0; i<64; i+=5){
+		//vif.negateBit(64*i+i); //TODO where click
+		vif.unifiedOperator(64*i+i);
+	}*/
+	//vif.unifiedOperator(37*vif.mouseInCanvas.x);
+	
+	vif.updateStatusContent();
+	vif.updateStatusDisplay();
+	
+	var sum = 0;
+	for(var row=0; row<vif.howManyRowsAndColumns; row++){
+		for(var column=0; column<vif.howManyRowsAndColumns; column++){
+			var dataIndex = row*vif.howManyRowsAndColumns + column;
+			var manhattenDistance = row+column;
+			if(vif.ones[dataIndex]) sum += Math.pow(2, manhattenDistance);
+		}
+	}
+	var newTopCenterHtml = 'Sum of 2^(row+column) for all bits: '+sum;
+	if(topCenterDiv.innerHTML != newTopCenterHtml){ //avoid redrawing unless changed
+		topCenterDiv.innerHTML = newTopCenterHtml;
+	}
+	
+	vif.imageContext.putImageData(vif.imageData, 0, 0);
+	vif.queueFunction(vif.mainLoop);
+};
+
+vif.isMouseInCanvas = false;
+
+vif.start = function(){
+	vif.log('testing lofd');
+	
+	vif.log("TODO only redraw canvas when change data");
+	
+	for(var row=0; row<vif.howManyRowsAndColumns; row++){
+		for(var column=0; column<vif.howManyRowsAndColumns; column++){
+			var dataIndex = row*vif.howManyRowsAndColumns + column;
+			//if((row == 8 && column == 8) || row==20 || column==10){ //Give you a bit to start with
+			//	vif.ones[dataIndex] = true;
+			//}else{
+				vif.ones[dataIndex] = false;
+				vif.selected[dataIndex] = false;
+			//}
+			if(Math.random() < .3) vif.ones[dataIndex] = true;
+			vif.wantRowToNotBeAllZeros[dataIndex] = 0;
+			vif.wantColumnToNotBeAllZeros[dataIndex] = 0;
+		}
+	}
+	for(var i=0; i<vif.howManyRowsAndColumns; i++){
+		vif.columnLabels[i] = new vif.Rect('t<br>e<br>s<br>t<br>C<br>o<br>l<br>'+i);
+		vif.columnLabels[i].display();
+		vif.rowLabels[i] = new vif.Rect('testRow'+i);
+		vif.rowLabels[i].display();
+		//TODO change color in row and column mouse is at
+		vif.rowSelected[i] = false;
+		vif.columnSelected[i] = false;
+	}
+	
+	var topDiv = document.getElementById('topDiv');
+	topDiv.innerHTML = vif.meta.fullName+"<br>License: "+vif.meta.licenseName+"<br>(math well understood, software design in progress)<br><br>When this is finished, the row and column sizes will change as you move the mouse so its easier to see specific parts, while keeping a ratio of double size of each smaller digit, or very small size if not being looked at then. When you click any certain rectangle (a bit in the square matrix of bits), it will do 1 of 2 things described below (in <b>bold</b>)... This is going to show the world how to count, add, multiply, and factor binary integers in your head really fast (while I dont know about large integers, still an open question how fast it can be done), and why base 10 numbers should be left in the past. Theres so many things to explore in the basics of what bits can represent, including deeplearning using boltzmann machines on bit variables, bayesian networks, and other ways to represent thoughts as bits. This wont always be a grid of bits. Its a layer we need to understand before getting to shapes that bend and twist with multitouchscreens, reacting in intelligent ways to combination of where you push on them. A list of bits tells each point on its surface move left or right 1 pixel, and another bit for up and down, and over long distances of list of bits, it can form the outline of any shape. The all paths of pascals triangle is how we understand the angles as bell curves. This is a software in progress.";
+	var canvas = document.getElementById('theCanvas');
+	vif.log('canvas='+canvas);
+	var context = canvas.getContext('2d');
+	vif.imageContext = context;
+	vif.log('contex='+context);
+	//var imageData = context.createImageData(canvas.width,canvas.height);
+	var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+	vif.imageData = imageData;
+	vif.w = vif.imageData.width;
+	vif.h = vif.imageData.height;
+	vif.log('imageData...');
+	vif.log('imageData='+imageData);
+	var imageDataCount = 0;
+	for(var i in imageData){
+		vif.log('imageData['+i+']='+imageData[i]);
+		imageDataCount++;
+	}
+	vif.log('imageDataCount='+imageDataCount);
+	var d = imageData.data;
+	vif.log('d='+d);
+	vif.pixels = d;
+	vif.canv = document.getElementById('theCanvas');
+	//vif.width = 8; //TODO get this from imageData
+	//vif.height = 8; //TODO get this from imageData
+	//vif.drawFirstPixels();
+	context.putImageData(imageData, 0, 0);
+	canvas.onmousemove = function(mayBeAnEvent){
+		vif.isMouseInCanvas = true;
+		var canvasXOnScreen = vif.getCanvasXOnScreen();
+		var canvasYOnScreen = vif.getCanvasYOnScreen();
+		if(mayBeAnEvent){
+			vif.mouseInCanvas.x = mayBeAnEvent.pageX-canvasXOnScreen;
+			vif.mouseInCanvas.y = mayBeAnEvent.pageY-canvasYOnScreen;
+		}else if(window.event){
+			vif.mouseInCanvas.x = window.event.x-canvasXOnScreen;
+			vif.mouseInCanvas.y = window.event.y-canvasYOnScreen;
+		}else{
+			throw 'no onmousemove event object';
+		}
+		vif.queueFunction(vif.doThisSoonAfterOnmousemoveEvent);
+	};
+	canvas.onmouseover = canvas.onmouseenter = function(){
+		vif.isMouseInCanvas = true;
+	};
+	canvas.onmouseout = canvas.onmouseexit = function(){
+		vif.isMouseInCanvas = false;
+	};
+	document.body.onmouseup = function(mayBeAnEvent){
+		vif.queueFunction(vif.doThisSoonAfterOnmouseupEvent);
+	};
+	
+	document.body.onmousedown = function(mayBeAnEvent){
+		vif.queueFunction(vif.doThisSoonAfterOnmousedownEvent);
+	};
+	/*document.body.onmousedown = function(mayBeAnEvent){
+		nlmi.mouseIsDown = true;
+		if(nlmi.newestRectMouseClicked == null){ //Click once to start dragging the word with the mouse. Click again to let it go.
+			nlmi.newestRectMouseClicked = nlmi.newestMouseSelectedRect; //null if mouse has never moved or there are no rects
+		}else{
+			nlmi.newestRectMouseClicked = null;
+		}
+	v};
+	document.body.onmouseup = function(mayBeAnEvent){
+		nlmi.mouseIsDown = false;
+		if(nlmi.newestMouseSelectedRect_lastKnownDistToMouse < nlmi.newestMouseSelectedRect_maxDistToCountAsClick){
+			nlmi.queueFunction(nlmi.onClickMovingWord);
+		}
+		//nlmi.newestRectMouseClicked = null;
+	};*/
+	
+	for(var x=0; x<vif.w; x++){
+		for(var y=0; y<vif.h; y++){
+			vif.writeVisible(x,y,255);
+			vif.writeRed(x,y,0);
+			vif.writeGreen(x,y,0);
+			vif.writeBlue(x,y,0);
+		}
+	}
+	
+	vif.log("TODO put rowFactor and columnFactor textfield/textarea at bottom right corner. When edit them, change bits in grid and other labels. When change grid, set rowFactor.value and columnFactor.value to either a message that they're not all equal or zero, or the factor if they are.");
+	
+	vif.log("TODO Make sure label editing is working in chrome, firefox, opera, and IE");
+	
+	vif.log("TODO line through diagonal of each rectangle on screen so can see where it can slide");
+	
+	vif.log("TODO Write extra code in readRed, writeRed, and rectangle write function, and write bit function, for Safari so can use its canvas too, and check a bit variable in all of those functions to choose the safari or nonsafari code.");
+	
+	vif.addButton('3x3', function(){ vif.setFactorsOnScreen(3,3); } );
+	vif.addButton('5x3', function(){ vif.setFactorsOnScreen(5,3); } );
+	vif.addButton('5x5', function(){ vif.setFactorsOnScreen(5,5); } );
+	vif.addButton('5x7', function(){ vif.setFactorsOnScreen(5,7); } );
+	vif.addButton('15x17', function(){ vif.setFactorsOnScreen(15,17); } );
+	vif.addButton('5x17', function(){ vif.setFactorsOnScreen(5,17); } );
+	vif.addButton('255x1', function(){ vif.setFactorsOnScreen(255,1); } );
+	vif.addNewlineAfterButton();
+	vif.addButton('swap up (first found)', vif.swapVerticalUpIfAny);
+	vif.addButton('swap left (first found)', vif.swapSidewaysLeftIfAny);
+	
+	vif.setFactorsOnScreen(5,5);
+	
+	vif.queueFunction(vif.mainLoop);
+	//vif.mainLoop();
+};
+
+vif.intDataOfRow = function(row){
+	var intData = 0;
+	var digitWeight = 1;
+	for(var column=0; column<vif.howManyRowsAndColumns; column++){
+		var dataIndex = row*vif.howManyRowsAndColumns + column;
+		if(vif.ones[dataIndex]) intData += digitWeight;
+		digitWeight *= 2;
+	}
+	return intData;
+};
+
+vif.intDataOfColumn = function(column){
+	var intData = 0;
+	var digitWeight = 1;
+	for(var row=0; row<vif.howManyRowsAndColumns; row++){
+		var dataIndex = row*vif.howManyRowsAndColumns + column;
+		if(vif.ones[dataIndex]) intData += digitWeight;
+		digitWeight *= 2;
+	}
+	return intData;
+};
+
+//Does not cause any event
+vif.writeIntDataOfRow = function(row, intData){
+	//vif.log("writeIntDataOfRow "+row+" "+intData);
+	var maxInt = Math.pow(2,vif.howManyRowsAndColumns)-1;
+	intData = Math.max(0,Math.min(intData,maxInt));
+	var i = intData;
+	for(var column=0; column<vif.howManyRowsAndColumns; column++){
+		var dataIndex = row*vif.howManyRowsAndColumns + column;
+		var bit = (i%2) ? true : false;
+		vif.ones[dataIndex] = bit;
+		i = Math.floor(i/2);
+	}
+};
+
+//Does not cause any event
+vif.writeIntDataOfColumn = function(column, intData){
+	//vif.log("writeIntDataOfColumn "+column+" "+intData);
+	var maxInt = Math.pow(2,vif.howManyRowsAndColumns)-1;
+	intData = Math.max(0,Math.min(intData,maxInt));
+	var i = intData;
+	for(var row=0; row<vif.howManyRowsAndColumns; row++){
+		var dataIndex = row*vif.howManyRowsAndColumns + column;
+		var bit = (i%2) ? true : false;
+		vif.ones[dataIndex] = bit;
+		i = Math.floor(i/2);
+	}
+};
+
+vif.htmlForRowLabel = function(row){
+	var intData = vif.intDataOfRow(row);
+	var intDataString = vif.addHighZerosToLabelNumber(''+intData);
+	var html = "<input id=\"rowLabel"+row+"\" type=\"text\" style=\"width:"+vif.rowLabelSize+"px; height:"+vif.minSize+"px; text-align:right; background-color:#0088bb;\" value=\""+intDataString+"\" onKeyUp='vif.onKeyUpInRow("+row+");'/>";
+	//return intData;
+	return html;
+};
+
+vif.htmlForColumnLabel = function(column){
+	var intData = vif.intDataOfColumn(column);
+	var baseTen = ''+intData;
+	baseTen = vif.addHighZerosToLabelNumber(''+baseTen);
+	/*
+	var oneCharPerLine = ''+baseTen.charAt(0);
+	//var n ='<br>';
+	var n = "\r\n";
+	for(var i=1; i<baseTen.length; i++){
+		oneCharPerLine += n+baseTen.charAt(i);
+	}
+	*/
+	//var style = "style=\"width:300px; height:150px;\""
+	var oneCharPerLine = baseTen; //textarea so thin it wraps after each char
+	var html = "<textarea id=\"columnLabel"+column+"\" style=\"width:"+vif.minSize+"px; height:"+vif.columnLabelSize+"px; background-color:#00bb88; text-align:center; overflow:hidden; resizable:none;\" onKeyUp=\"vif.onKeyUpInColumn("+column+");\" wrap=\"hard\">"+oneCharPerLine+"</textarea>";
+	//var html = "<textarea rows=\"9\" cols=\"1\" wrap=\"hard\">"+oneCharPerLine+"</textarea>";
+	return html;
+};
+
+//TODO what about when rows/columns are so small they have no textfield/textarea in later version?
+vif.getRowLabelObject = function(row){
+	return document.getElementById('rowLabel'+row);
+};
+vif.getColumnLabelObject = function(column){
+	return document.getElementById('columnLabel'+column);
+};
+
+//TODO If row is too small and has no textfield/textarea, return empty string
+vif.getRowText = function(row){
+	return vif.getRowLabelObject(row).value;
+};
+
+//TODO If row is too small and has no textfield/textarea, return empty string
+vif.getColumnText = function(column){
+	return vif.getColumnLabelObject(column).value;
+};
+
+vif.putRowText = function(row, text){
+	vif.getRowLabelObject(row).value = text;
+};
+
+vif.putColumnText = function(column, text){
+	vif.getColumnLabelObject(column).value = text;
+};
+
+vif.negateBit = function(dataIndex){
+	vif.writeBit(dataIndex, !vif.ones[dataIndex]);
+	//vif.ones[dataIndex] = !vif.ones[dataIndex];
+};
+
+vif.mouseInCanvas = {};
+vif.mouseInCanvas.x = 0;
+vif.mouseInCanvas.y = 0;
+
+vif.runsOfMainLoop = 0;
+
+vif.redOffset = 0;
+vif.greenOffset = 1;
+vif.blueOffset = 2;
+vif.visibleOffset = 3;
+
+vif.readRed = function(x, y){
+	var index = (y*vif.w+x)*4;
+	return vif.pixels[index+vif.redOffset];
+};
+
+vif.writeRed = function(x, y, redByte){
+	var index = (y*vif.w+x)*4;
+	vif.pixels[index+vif.redOffset] = redByte;
+};
+
+vif.readGreen = function(x, y){
+	var index = (y*vif.w+x)*4;
+	return vif.pixels[index+vif.greenOffset];
+};
+
+vif.writeGreen = function(x, y, greenByte){
+	var index = (y*vif.w+x)*4;
+	vif.pixels[index+vif.greenOffset] = greenByte;
+};
+
+vif.readBlue = function(x, y){
+	var index = (y*vif.w+x)*4;
+	return vif.pixels[index+vif.blueOffset];
+};
+
+vif.writeBlue = function(x, y, blueByte){
+	var index = (y*vif.w+x)*4;
+	vif.pixels[index+vif.blueOffset] = blueByte;
+};
+
+//Visible is opposite of transparent
+vif.readVisible = function(x, y){
+	var index = (y*vif.w+x)*4;
+	return vif.pixels[index+vif.visibleOffset];
+};
+
+vif.writeVisible = function(x, y, VisibleByte){
+	var index = (y*vif.w+x)*4;
+	vif.pixels[index+vif.visibleOffset] = VisibleByte;
+};
+
+vif.getCanvasXOnScreen = function(){
+	return vif.canv.offsetLeft;
+};
+
+vif.getCanvasYOnScreen = function(){
+	return vif.canv.offsetTop;
+};
+
+vif.countLogLines = 0;
+
+//Optimization. Does the same thing as
+//vif.writeRed, writeGreen, writeBlue at all those indexs same color.
+//My CPU was showing 30% usage from just redrawing it, while I know
+//HTML5 canvas object is fast enough to take just a few CPU percent by itself.
+vif.writeColorAtRectangle = function(xStart, yStart, xEndExclusive, yEndExclusive,
+		redByte, greenByte, blueByte){
+	if(0 <= xStart && xEndExclusive < vif.w && 0 <= yStart && yEndExclusive < vif.h){
+		//vif.log("xStart="+xStart);
+		var redOffset = vif.redOffset;
+		var greenOffset = vif.greenOffset;
+		var blueOffset = vif.blueOffset;
+		var w = vif.w;
+		var bytesPerPixelRow = w*4;
+		var pixelRowOffsetInByteArray = bytesPerPixelRow*yStart;
+		//vif.log("redOffset="+redOffset+" greenOffset="+greenOffset+" blueOffset="+blueOffset);
+		for(var y=yStart; y<yEndExclusive; y++){
+			var byteIndex = pixelRowOffsetInByteArray+xStart*4;
+			for(var x=xStart; x<xEndExclusive; x++){
+				//vif.log("x="+x+" y="+y+" byteIndex="+byteIndex);
+				vif.pixels[byteIndex+redOffset] = redByte;
+				vif.pixels[byteIndex+greenOffset] = greenByte;
+				vif.pixels[byteIndex+blueOffset] = blueByte;
+				byteIndex += 4;
+			}
+			pixelRowOffsetInByteArray += bytesPerPixelRow;
+		}
+	}
+};
+
+//vif.readRedAtColRow = function(column, row){
+//};
+
+//Which rectangle on screen is the mouse or was most recently at
+vif.mouseInWhatDataIndex = function(){
+	var row = vif.rowOfPixel(vif.mouseInCanvas.y);
+	var col = vif.columnOfPixel(vif.mouseInCanvas.x);
+	return row*vif.howManyRowsAndColumns + col;
+};
+
+//The main data displayed on screen
+//TODO use booleans here instead of 0/1
+vif.ones = [];
+
+//booleans. Same indexs as vif.ones (dataIndex)
+vif.selected = [];
+
+//Range 0 to vif.howManyRowsAndColumns-1
+vif.rowSelected = [];
+
+//Range 0 to vif.howManyRowsAndColumns-1
+vif.columnSelected = [];
+
+//vif.Rect objects above each column
+vif.columnLabels = [];
+
+//vif.Rect objects left of each row
+vif.rowLabels = [];
+
+//positive for want at least a 1 somewhere, negative for want all 0s in row/column.
+//This is about how the multiply of integers looks on screen:
+//Every square which finds a 1 bit anywhere in its row AND anywhere in its column
+//must also be a 1 bit. All other rows and columns are all 0s.
+vif.wantRowToNotBeAllZeros = [];
+vif.wantColumnToNotBeAllZeros = [];
+
+//After first being set, must subtract from one same amount added to another
+vif.rowSizes = [];
+vif.columnSizes = [];
+
+vif.minSize = 18; //too big and the column labels wont wrap after every digit
+
+for(var i=0; i<vif.howManyRowsAndColumns; i++){
+	vif.rowSizes[i] = vif.minSize;
+	vif.columnSizes[i] = vif.minSize;
+}
+
+/*for(var i=1; i<vif.howManyRowsAndColumns; i++){
+	if(vif.rowSizes[i-1] > 1 && vif.rowSizes[i] > 1){
+		vif.rowSizes[i]
+	}
+}*/
+
+//TODO make rows and columns display from bottom right corner as smallest digit,
+//so reading left to right then top to bottom will read big digits first (big endian)
+//as most people normally read numbers, but for math reasons I want the data
+//to be littleEndian (since the nth base2 digit adds 2^n or 0).
+//I want rows and columns to be indexed littleEndian.
+for(var i=0; i<vif.howManyRowsAndColumns; i++){
+	/*var backwardI = vif.howManyRowsAndColumns-1-i;
+	if(backwardI > 58){
+		vif.rowSizes[i] = Math.floor(Math.pow(2,i));
+		vif.columnSizes[i] = Math.floor(Math.pow(2,i));
+	}*/
+	/*if(i < 20){
+		vif.rowSizes[i] = (21-i);
+		vif.columnSizes[i] = (21-i);
+	}*/
+	/*var n = 17;
+	if(i < n){
+		vif.rowSizes[i] += Math.floor(Math.pow(1.25,n-1-i));
+		vif.columnSizes[i] += Math.floor(Math.pow(1.25,n-1-i));
+	}*/
+	var exponentBase = 1.275;
+	//var exponentBase = 1.248;
+	//var exponentBase = 1.3;
+	//var exponentBase = 1.138;
+	//vif.rowSizes[i] += Math.floor(Math.pow(exponentBase,i));
+	//vif.columnSizes[i] += Math.floor(Math.pow(exponentBase,i));
+	vif.rowSizes[i] = Math.ceil(vif.rowSizes[i]*Math.pow(exponentBase,i));
+	vif.columnSizes[i] = Math.ceil(vif.columnSizes[i]*Math.pow(exponentBase,i));
+}
+
+//TODO
+//vif.rowSizesSum = [];
+//vif.columnSizesSum = [];
+
+//TODO
+//Call this after change contents of vif.rowSizes or vif.columnSizes
+//so can look up where mouse moved to without summing.
+//If it were only for mouse, this speed would be unimportant,
+//but later I want to use the Canvas as a byte array with pointers into itself.
+/*vif.cacheRowAndColumnSizes = function(){
+	vif.rowSizesSum[0] = vif.rowSizes[0];
+	vif.columnSizesSum[0] = vif.columnSizes[0];
+	for(var i=1; i<vif.howManyRowsAndColumns; i++){
+		vif.rowSizesSum[i] = vif.rowSizesSum[i-1] + vif.rowSizes[i];
+		vif.columnSizesSum[i] = vif.columnSizesSum[i-1] + vif.columnSizes[i];
+	}
+};*/
+
+//TODO optimize with vif.cacheRowAndColumnSizes
+vif.rowOfPixel = function(pixelY){
+	var reversedPixelY = vif.h-1-pixelY;
+	var sum = 0;
+	for(var row=0; row<vif.howManyRowsAndColumns; row++){
+		sum += vif.rowSizes[row];
+		if(reversedPixelY < sum) return row;
+	}
+	if(reversedPixelY < 0) return 0; //min row
+	return vif.howManyRowsAndColumns-1; //max row
+};
+
+//TODO optimize with vif.cacheRowAndColumnSizes
+vif.columnOfPixel = function(pixelX){
+	var reversedPixelX = vif.w-1-pixelX;
+	var sum = 0;
+	for(var column=0; column<vif.howManyRowsAndColumns; column++){
+		sum += vif.columnSizes[column];
+		if(reversedPixelX < sum) return column;
+	}
+	if(reversedPixelX < 0) return 0; //min column
+	return vif.howManyRowsAndColumns-1; //max column
+};
+
+//Display all properties of this as map on screen,
+//like if code said vif.statusMap['abc'] = 'def'
+//then abc: def would be displayed below the game area.
+//Many things can be displayed that way at once.
+vif.statusMap = {};
+
+vif.updateStatusContent = function(){
+	vif.statusMap['mouseX'] = vif.mouseInCanvas.x;
+	vif.statusMap['mouseY'] = vif.mouseInCanvas.y;
+	vif.statusMap['vif.getCanvasXOnScreen'] = vif.getCanvasXOnScreen();
+	vif.statusMap['vif.getCanvasYOnScreen'] = vif.getCanvasYOnScreen();
+	vif.statusMap['rowSelected'] = vif.rowOfPixel(vif.mouseInCanvas.y);
+	vif.statusMap['columnSelected'] = vif.columnOfPixel(vif.mouseInCanvas.x);
+	vif.statusMap['vif.countFilterLabelText'] = vif.countFilterLabelText;
+	//for(var key in vif.canv){
+	//	vif.statusMap['canvas['+key+']'] = vif.canv[key];
+	//}
+};
+
+vif.updateStatusDisplay = function(){
+	var statusDiv = document.getElementById('statusDiv');
+	var oldStatus = statusDiv.innerHTML;
+	var newStatus = '';
+	var n = '<br>';
+	for(var key in vif.statusMap){
+		var value = vif.statusMap[key];
+		newStatus += key+': '+value+n;
+	}
+	if(oldStatus != newStatus) statusDiv.innerHTML = newStatus;
+};
+
+//TODO optimize this by using a buffer instead of repacing whole string each time
+vif.replaceAll = function(text, replaceThis, replaceWith){
+	var lastIndex = text.lastIndexOf(replaceThis);
+	if(lastIndex == -1) return text;
+	return vif.replaceAll(text.substring(0,lastIndex),replaceThis,replaceWith)
+		+replaceWith+text.substring(lastIndex+replaceThis.length,text.length);
+};
+
+vif.quote = function(text){
+	text = vif.replaceAll(text, "\n","\\n");
+	text = vif.replaceAll(text, "\r","\\r");
+	text = vif.replaceAll(text, "\t","\\t");
+	text = vif.replaceAll(text, "\'","\\'");
+	text = vif.replaceAll(text, "\"","\\\"");
+	return '"'+text+'"';
+};
+
+//Returns a parameterless func that returns -1 or a dataIndex
+vif.funcThatReturnsFirstDataIndexMatching = function(funcOfDataIndexToBit){
+	return function(){
+		var dEnd = vif.howManyRowsAndColumns*vif.howManyRowsAndColumns;
+		for(var d=0; d<dEnd; d++){
+			if(funcOfDataIndexToBit(d)) return d;
+		}
+		return -1;
+	};
+};
+
+//True if vif.unifiedOperator(dataIndex) would swap 2 opposite bits below
+vif.wouldSidewaysSwap = function(dataIndex){
+	var x = dataIndex%vif.howManyRowsAndColumns;
+	var y = Math.floor(dataIndex/vif.howManyRowsAndColumns);
+	if(0 < x && 0 < y){ //has bit vars in 2 lower digit directions
+		var dataIndexFirstChild = dataIndex-vif.howManyRowsAndColumns;
+		var dataIndexSecondChild = dataIndex-1;
+		return (vif.ones[dataIndexFirstChild] != vif.ones[dataIndexSecondChild]);
+	}
+	return false;
+};
+
+vif.wouldVerticalSwap = function(dataIndex){
+	var x = dataIndex%vif.howManyRowsAndColumns;
+	var y = Math.floor(dataIndex/vif.howManyRowsAndColumns);
+	if(0 < x && 0 < y){ //has bit vars in 2 lower digit directions
+		var dataIndexFirstChild = dataIndex-vif.howManyRowsAndColumns;
+		var dataIndexSecondChild = dataIndex-1;
+		return (vif.ones[dataIndex] != vif.ones[dataIndexFirstChild])
+			&& (vif.ones[dataIndex] != vif.ones[dataIndexSecondChild]);
+	}
+	return false;
+};
+
+vif.wouldVerticalSwapUp = function(dataIndex){
+	//log("wouldVerticalSwapUp? "+dataIndex)
+	var x = dataIndex%vif.howManyRowsAndColumns;
+	var y = Math.floor(dataIndex/vif.howManyRowsAndColumns);
+	if(0 < x && 0 < y){ //has bit vars in 2 lower digit directions
+		var dataIndexFirstChild = dataIndex-vif.howManyRowsAndColumns;
+		var dataIndexSecondChild = dataIndex-1;
+		var wouldSwap = !vif.ones[dataIndex] && vif.ones[dataIndexFirstChild] && vif.ones[dataIndexSecondChild];
+		//vif.log("wouldVerticalSwapUp x="+x+" y="+y+" "+dataIndex+" "+wouldSwap);
+		return wouldSwap;
+	}
+	//vif.log("wouldVerticalSwapUp x="+x+" y="+y+" "+dataIndex+" false");
+	return false;
+};
+vif.firstDataIndexThatWouldVerticalSwapUp =
+	vif.funcThatReturnsFirstDataIndexMatching(vif.wouldVerticalSwapUp);
+
+vif.wouldChangeSomething = function(dataIndex){
+	return vif.wouldSidewaysSwap(dataIndex) || vif.wouldVerticalSwap(dataIndex);
+};
+
+vif.wouldSidewaysSwapLeft = function(dataIndex){
+	var x = dataIndex%vif.howManyRowsAndColumns;
+	var y = Math.floor(dataIndex/vif.howManyRowsAndColumns);
+	if(0 < x && 0 < y){ //has bit vars in 2 lower digit directions
+		var dataIndexFirstChild = dataIndex-vif.howManyRowsAndColumns;
+		var dataIndexSecondChild = dataIndex-1;
+		return !vif.ones[dataIndexFirstChild] && vif.ones[dataIndexSecondChild];
+	}
+	return false;
+};
+vif.firstDataIndexThatWouldSidewaysSwapLeft =
+	vif.funcThatReturnsFirstDataIndexMatching(vif.wouldSidewaysSwapLeft);
+
+vif.wouldSidewaysSwapRight = function(dataIndex){
+	return vif.wouldSidewaysSwap(dataIndex) && !vif.wouldSidewaysSwapLeft(dataIndex);
+};
+vif.firstDataIndexThatWouldSidewaysSwapRight =
+	vif.funcThatReturnsFirstDataIndexMatching(vif.wouldSidewaysSwapRight);
+	
+//Returns true if changed anything
+vif.swapSidewaysLeftIfAny = function(){
+	var d = vif.firstDataIndexThatWouldSidewaysSwapLeft();
+	if(d == -1) return false;
+	vif.unifiedOperator(d);
+	return true;
+};
+
+vif.swapVerticalUpIfAny = function(){
+	var d = vif.firstDataIndexThatWouldVerticalSwapUp();
+	if(d == -1) return false;
+	vif.unifiedOperator(d);
+	return true;
+};
+
+vif.countIds = 0;
+
+vif.addButton = function(text, onclickFunc){
+	var button = document.createElement("input");
+	button.type = 'button';
+	button.onclick = onclickFunc;
+	var div = document.getElementById('buttonsDiv');
+	div.appendChild(button);
+	button.value = text;
+	/*
+	//document.body.appendChild(this.theDiv);
+	var quotedText = vif.quote(text);
+	vif.log("quotedText="+quotedText);
+	//var quotedCode = vif.quote(code);
+	//vif.log("quotedCode="+quotedCode);
+	var div = document.getElementById('buttonsDiv');
+	var id = 'id'+(vif.countIds++);
+	div.innerHTML += '<input id="'+id+'" type="button" value='+vif.quote(text)+'>';
+	var button = document.getElementById(id);
+	button.onclick = onclickFunc;
+	*/
+};
+
+vif.addNewlineAfterButton = function(){
+	var br = document.createElement("br");
+	document.getElementById('buttonsDiv').appendChild(br);
+};
+
+vif.logSizeLimit = 2000;
+
+vif.log = function(text){
+	vif.countLogLines++;
+	if(vif.countLogLines < 1000){
+		var g = document.getElementById('theLog');
+		var newHtml = text+'\r\n<br>'+g.innerHTML;
+		//TODO cut off end if larger than vif.logSizeLimit
+		g.innerHTML = newHtml;
+	}
+};
+
+//Not used yet
+vif.ajaxSend = function(stringSendToServer){
+	vif.log('Saying to server: '+stringSendToServer);
+	try{
+		var jax = 'no ajax object created';
+		if(window.XMLHttpRequest){ 
+			jax = new window.XMLHttpRequest();
+		}else if(window.ActiveXObject){
+			jax = new window.ActiveXObject('Microsoft.XMLHTTP');
+		}
+		jax.onreadystatechange = function(){
+			if(jax.readyState == 4){
+				vif.ajaxReceive(stringSendToServer, jax.responseText);
+			}
+		};
+		jax.open('GET', 'http://'+window.location.host+'/'+stringSendToServer, true);
+		jax.send(null);
+	}catch(e){
+		alert(e);
+	}
+};
+
+//Not used yet
+vif.ajaxReceive = function(stringSentToServer, stringReceivedFromServer){
+	vif.log('Server said: '+stringReceivedFromServer);
+};
+
+vif.queuedFunction = null;
+
+vif.queueFunction = function(func){
+	if(vif.queuedFunction == null){
+		vif.queuedFunction = func;
+	}else{
+		var olderFunc = vif.queuedFunction;
+		var newerFunc = func;
+		vif.queuedFunction = function(){
+			olderFunc();
+			newerFunc();
+		};
+	}
+};
+
+vif.runQueuedFunctions = function(){
+	if(vif.queuedFunction == null) return;
+	var funcToRun = vif.queuedFunction;
+	vif.queuedFunction = null;
+	funcToRun();
+};
+
+//vif.millisRestBetweenLocalHeartbeats = 1;
+vif.millisRestBetweenLocalHeartbeats = 1;
+
+vif.localHeartbeat = function(){
+	vif.runQueuedFunctions();
+	setTimeout('vif.localHeartbeat();', vif.millisRestBetweenLocalHeartbeats);
+};
+
+vif.queueFunction(vif.start);
+
+window.onload = vif.localHeartbeat;
+
+</script>
+</head>
+<body bgcolor=black text=white>
+<center>
+<div id="buttonsDiv"></div>
+Click any rectangle below to do a swap depending on if 2 lower are equal or opposites.
+<br><br><br><br><br><br>
+<canvas id="theCanvas" width="400", height="400" style="border:1px solid #000000;"></canvas><br>
+<div id="topCenterDiv"></div>
+</center>
+
+Visual Integer Factor<br>
+Runs fast in Chrome Firefox Opera,<br>
+slow in IE, not work in Safari (TODO).<br>
+Opensource - view source in browser to see<br>how it works and explore this research path.
+<div id='statusDiv'>(statusDiv here)</div>
+
+<div id='theLog'>(theLog starts here...)</div>
+<br><br>
+
+<div id="topDiv"></div>
+<br><br>
+------------
+<br><br>
+<a href=http://sourceforge.net/projects/visualintfactor>http://sourceforge.net/projects/visualintfactor</a>
+<br><br><br><br>
+<a href=http://mymathforum.com/number-theory/48036-pascals-triangle-2-color-incompressible-fluid-flat-space.html>Pascals triangle is a 2 color incompressible fluid in flat space</a>
+<br><br>
+There is a far simpler way to visualize counting by 1s (unary), plus, multiply, and integer factoring, all as pictures where pieces of fluid can be dragged between adjacent rectangles 3 at a time. Its base 2 as 2 colors of fluid with no need to calculate "0" "1" "9" or other symbols. Here's what I'm going for...
+<br><br>
+Pascals triangle has been mistakenly drawn with its parts each scaled by a different amount so all its cells are the same size. Each pascals triangle cell is supposed to be a rectangle on its corner with the cell downleft half as long in the downleft direction, the cell downright half as long in the downright direction, and the 2 cells upleft and upright twice as long in their directions. This fixes the fluid volume so the 2 cells below total their cell above between them. The ratio is always 2 to 1.
+<br><br>
+<b>There are only 2 allowed operations:
+<br><br>
+swap the fluid in 2 adjacent cells if its opposite colors, or
+<br><br>
+swap the fluid in 2 cells below with 1 above and between them if those are opposite colors and the 2 below are equal color.
+<br><br>
+Very simply, you can move fluid anywhere its touching as long as each cell is completely filled with only 1 color after each turn in the game.</b>
+<br><br>
+A binary integer starts at some cell and is read higher digits either upright or upleft. When multiplying, integers hang off the "1" color (bright) in any new direction. There are 2 directions of diagonal lines of cells which have no "1"/bright fluid anywhere, and all other cells must be filled with the bright fluid. It looks like a rectangle with all the bright fluid aligned with eachother on diagonals, something you could squash together into a rectangle of all 1s/bright if pascals triangle cells are all the same size, but they arent.
+<br><br>
+Pascals simplex is the same thing as multiply did from 1 dimension to 2. You lay pascals triangle on a floor and double cell height each next cell up.
+<br><br>
+It looks alot like "edit distance" algorithm, same datastruct, but not exactly.
+<br><br>
+"WaveSim" java applet branches in the same shape as pascals triangle, left and right and aligned on alternating pairs of indexs, each cycle multiplying complex numbers only locally. Lattice Boltzmann fluid sims look like pascals triangle in 2 dimensions, not pascals simplex but if you had 2 independent dimensions.
+<br><br>
+Pascals simplex to the nth degree, its the same relative cell, always viewed as 1.0 wide on all sides, halfing when you go down any dimension and doubling when you go up, in total the volume of a cell is 2 power (moves up in x minus moves down in x, moves up in y minus moves down in y, moves up in z... for however many dimensions you have). The multiply of 3 integers can be viewed as the multiply of any 2 as upright and the other sticking out upleft, or any way you want to view the multiply of many integers.
+<br><br>
+I dont know how efficient it is possible to solve large integer factoring, but I do know the basic idea is simpler than base 10 numbers and I hope to convince the world with turning it into part of a puzzle game that is true. This game will be called Visual Int Factor.
+<br><br>
+As pascals triangle is normally viewed, all cells the same size in a hexagon grid (which is actually a square grid counting 2 of the diagonal directions), it generates bell curves of standard deviation (the bigger part fits in this radius) C if you flip C^2 coins, for any integer C^2. Soliton waves as in WaveSim applet, should fit in a pascals triangle row except having complex numbers instead of bits or integers, so theres some layers of abstraction to figure out. Soliton waves have amplitude of bellcurve height. Lattice Boltzmann fluid sim could also hook in there. But not to get too complex too early, there is something more important to think about first... There is a continuous transform between all cells the same size and cells being double or half eachothers volume, and that transform is between 2^0 and 2^totalMoves. I think this will be easy to put on screen as its just scaling in each dimension separately between linear and exponential scale, linear being exponent of 0. In one view its bell curves formed from all zigzagging paths (or complex numbers in a more recursive view), and in the other side of that view its quanta, the digits of integers in any number of dimensions.
+<br><br>
+The last digit of e is not 1/bright or 0/dark because the digit's volume is 0, and the digit is touching position 0.0, and the volume of e (2.71 fluid in flat space) is between positions 0.0 and 3, the 2 digit being between positions 1 and 3. If I consume random bits (fair coin flips) until I get the first heads/1, and go directly to that digit in 1/e as a fraction (not that its easy to calculate on screen, so many recursions...), then a weighted random bit observation costs an average of 2 fair coin flips and may observe the last digit of 1/e if you get an infinite number of heads. Its just infinitely unlikely. 
+<br><br><br><br><br><br>
+</body>
+</html>

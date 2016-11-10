@@ -1,2 +1,31 @@
-# visualintfactor
-Puzzle game demonstrating whats so hard about binary integer factoring 
+#visualintfactor
+Ben F Rayfield
+
+Game where you can feel per bit whats so hard about integer factoring.
+Numbers are a fluid. Their volume is conserved.
+In unary this is clearly seen. In binary each digit would be twice as big as the last.
+Unary digits slide sideways. Binary swaps 2 below for 1 above.
+To multiply binary integers, copy one perpendicular at each bright bit of the other,
+then move all the bright spots as far as they can go. To factor, do that in reverse,
+but there are exponential ways they can expand 1 bright to 2.
+Its factored when bright sees bright along 2 lower directions or touches wall.
+
+In the context of a 2d hexagon grid, which is equal to a grid of squares with 2 sides going upleft and upright and including the 2 extra directions (for the hexagons) of diagonal between squares, 1 distance ahead in one dimension and 1 distance behind in the other, so the same number of bits high. Thats the system I'm planning this math for, not that I'm sure to solve the constraints which define integer factoring.
+
+In that hexagon grid, horizontal keeps your number of bits the same, and upleft and upright are the next bigger digits so the only allowed transform vertically is to trade 2 below for 1 above (either direction), in units of 1 digit/bit in the integers we are calculating in 2 dimensions. This is because 2 1 bits carry over to the next higher digit place, putting a 1 there and erasing the 1s (leaving whatever other many digits may affect it in the multiply calculation) from where they were before they moved up.
+
+A multiply calculation is made of n*m digits, the multiply of 2 binary integers of those bit lengths, aligning one starting at each 1 digit/bit and going up from there, usually overlapping the copies of itself many places as the digits filter up. Each bit is at a digitHeight shared by all other bits which align there, are at that sum of bit positions in the 2 integers as one integer stacks at each of the others 1 bits. These are the bits of the integer sizes of a rectangle whose area is the integer we are trying to factor.
+
+The bits of the factor aligned to upleft (whichever we may navigate the constraints to find first) and the remaining bits are exactly defined by, but may be impractical to calculate, the set of all possible ways the original bits can branch downward as I said earlier "trade 2 below for 1 above" for the "carrying", branching because its reverse carrying that hasnt happened yet, what we're looking for in possible factors. The total branched bits, getting half as heavy and twice as many for each one branched again, cant exceed the total number of bits at that bitHeight, which gets wider near the middle and is only 1 bit (which is 1 unless the factor is 2) at the top and bottom, so avoid searching exponentially many branches all the way to the bottom. Instead, branch during searching for the possible n*m bits (n*m is limited by number of bits in the integer we are trying to factor) to adjust the number of 1 bits at digitHeight groups that dont have enough 1 bits to satisfy the constraints.
+
+Ignore all 0 bits. They add nothing to the integer value. Ignore them in the upleft and upright diagonal directions and between 1 bits in the 2d space. We only care about 1 bits.
+
+A rectangle of dimensions of 2 integer sizes (whose number of bits are n and m), has n copies of one integer and m copies of the other, aligned perpendicular as views of the same n*m bits, whose total integer value must sum to the original integer we are trying to factor because trading a bigger 1 digit for 2 smaller 1 digits conserves total integer value at all steps. We dont have to directly think about parity as long as we know the 2 integer sizes of the rectangles dimensions multiply to the original integer, and since integer value is conserved in every bit, they match.
+
+The first constraint was on how many bits can be at each digitHeight before most of them hit eachother and filter up.
+
+The second and last constraint is to define, in terms of the hexagon grid, what it means for the rectangle to have the dimensions defined by the n and m bits of the 2 integers of its dimension sizes. The constraint is, every hexagon cell which sees a 1 bit in BOTH of the diagonal directions, at least one of upleft/downright AND at least one of upright/downleft, must also be a 1 bit. When 2 diagonals, which are emitted in 4 diagonal directions by each 1 bit, cross at a cell with a 0 bit, it must become a 1 bit, but only if the constraints would be more satisfied recursively considering that putting a 1 bit there makes us put a 1 bit at every other diagonal which the new diagonal will cross, if you think of it as diagonals being something that cellular automata spreads and fighting the crossing of eachother but pushed into it by the increased agreement in the hexagon grid that the 1 bits that diagonal is generated from, like a continuous transmitter of force, are satisfying the constraints (recursively to some depth or other way of enforcing it) more than the cost of adding this new 1 bit which will create a new diagonal with its own problems.
+
+How to satisfy the constraints I'm still thinking about, but the system will at least calculate unary numbers, binary numbers, plus, multiply, and allow the exploration of factoring integers without converging accurately to them in many cases, as I'm just getting started on this kind of automata, the "trade 2 below for 1 above" which is a view of pascals triangle which defines X choose Y factorials (not directly used here), and theres lots of ways they could be possibly solved or more accurate.
+
+VisualIntFactor will be based on integer theory, and I'm going for factoring ability or at least for small integers mostly to make sure its flexible enough to handle reversible computing while being the part of my system that does arithmetic and other basic math in a kind of space you might call 2d digit space, where trade of existing position (number of 1 bits) vertically toward heavier digits is double for each 1 move closer. I need really advanced tools to network many peoples minds together through the Internet through a game, an experiment, in statistical AI, hopefully using VisualIntFactor as one component if it turns out to work as well as I think.
